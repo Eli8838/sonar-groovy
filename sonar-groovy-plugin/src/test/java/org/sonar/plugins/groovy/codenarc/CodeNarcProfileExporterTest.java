@@ -56,24 +56,24 @@ public class CodeNarcProfileExporterTest {
 
   @Test
   public void shouldExportProfile() throws Exception {
-    ActiveRulesBuilder activeRulesBuilder = new ActiveRulesBuilder();
-    activeRulesBuilder.addRule(new NewActiveRule.Builder()
-                                   .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
-                                                          "org.codenarc.rule.basic.AddEmptyStringRule"))
-                                   .setName("Add Empty String")
-                                   .setSeverity(Severity.MAJOR)
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.basic.AddEmptyStringRule"))
+                                                .setName("Add Empty String")
+                                                .setSeverity(Severity.MAJOR)
+                                                .build())
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.size.ClassSizeRule"))
+                                                .setName("Class Size")
+                                                .setSeverity(Severity.MAJOR)
+                                                .build())
                                    .build());
-    activeRulesBuilder.addRule(new NewActiveRule.Builder()
-                                   .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
-                                                          "org.codenarc.rule.size.ClassSizeRule"))
-                                   .setName("Class Size")
-                                   .setSeverity(Severity.MAJOR)
-                                   .build());
-    exporter.exportActiveRules(activeRulesBuilder.build());
 
     assertSimilarXml(
-        TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportProfile.xml"),
-        writer.toString());
+      TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportProfile.xml"),
+      writer.toString());
   }
 
   @Test
@@ -126,7 +126,6 @@ public class CodeNarcProfileExporterTest {
 
   @Test
   public void shouldExportFixedRulesCorrectly() throws Exception {
-
     exporter.exportActiveRules(new ActiveRulesBuilder()
                                    .addRule(new NewActiveRule.Builder()
                                                 .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
