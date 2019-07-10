@@ -21,13 +21,13 @@ package org.sonar.plugins.groovy.codenarc;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
-import org.sonar.api.profiles.RulesProfile;
-import org.sonar.api.rules.ActiveRule;
-import org.sonar.api.rules.ActiveRuleParam;
+import org.sonar.api.batch.rule.ActiveRule;
+import org.sonar.api.batch.rule.ActiveRules;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.util.List;
+import java.util.Collection;
+import java.util.Map;
 
 public class CodeNarcProfileExporter {
 
@@ -38,16 +38,16 @@ public class CodeNarcProfileExporter {
     this.writer = writer;
   }
 
-  public void exportProfile(RulesProfile profile) {
+  public void exportActiveRules(ActiveRules activeRules) {
     try {
-      generateXML(profile.getActiveRulesByRepository(CodeNarcRulesDefinition.REPOSITORY_KEY));
+      generateXML(activeRules.findByRepository(CodeNarcRulesDefinition.REPOSITORY_KEY));
 
     } catch (IOException e) {
-      throw new IllegalStateException("Fail to export CodeNarc profile : " + profile, e);
+      throw new IllegalStateException("Fail to export CodeNarc profile : " + activeRules, e);
     }
   }
 
-  private void generateXML(List<ActiveRule> activeRules) throws IOException {
+  private void generateXML(Collection<ActiveRule> activeRules) throws IOException {
     appendXmlHeader();
     for (ActiveRule activeRule : activeRules) {
       appendRule(activeRule);
@@ -69,22 +69,21 @@ public class CodeNarcProfileExporter {
   }
 
   private void appendRule(ActiveRule activeRule) throws IOException {
-    String ruleKey = activeRule.getRuleKey();
+    String rule = activeRule.ruleKey().rule();
     // SONARGROOV-40 : key of rule having null parameters have been suffixed with ".fixed"
-    if (ruleKey.endsWith(".fixed")) {
-      ruleKey = ruleKey.substring(0, ruleKey.length() - ".fixed".length());
+    if (rule.endsWith(".fixed")) {
+      rule = rule.substring(0, rule.length() - ".fixed".length());
     }
-    writer.append("<rule class=\"").append(ruleKey);
-    if (activeRule.getActiveRuleParams().isEmpty()) {
+    writer.append("<rule class=\"").append(rule);
+    if (activeRule.params().isEmpty()) {
       writer.append(AUTO_CLOSING_TAG);
     } else {
       writer.append("\">\n");
-      for (ActiveRuleParam activeRuleParam : activeRule.getActiveRuleParams()) {
-        String value = activeRuleParam.getValue();
-        String defaultValue = activeRuleParam.getRuleParam().getDefaultValue();
-        if (StringUtils.isNotBlank(value) && !value.equals(defaultValue)) {
+      for (Map.Entry<String, String> entry : activeRule.params().entrySet()) {
+        String value = entry.getValue();
+        if (StringUtils.isNotBlank(value)) {
           writer.append("<property name=\"")
-            .append(activeRuleParam.getKey())
+            .append(entry.getKey())
             .append("\" value=\"")
             .append(StringEscapeUtils.escapeXml(value))
             .append(AUTO_CLOSING_TAG);

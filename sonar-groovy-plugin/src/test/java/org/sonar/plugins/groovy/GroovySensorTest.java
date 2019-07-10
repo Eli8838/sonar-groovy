@@ -83,7 +83,6 @@ public class GroovySensorTest {
     File sourceFile = new File(sourceDir, "Greeting.groovy");
 
     fileSystem = context.fileSystem();
-    fileSystem.add(new DefaultInputDir("", sourceDir.getPath()));
 
     Metadata metadata = new FileMetadata().readMetadata(
             Files.newBufferedReader(sourceFile.toPath(), StandardCharsets.UTF_8)

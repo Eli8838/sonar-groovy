@@ -20,18 +20,18 @@
 package org.sonar.plugins.groovy.codenarc;
 
 import org.apache.commons.lang.CharUtils;
+import org.assertj.core.api.Fail;
 import org.custommonkey.xmlunit.Diff;
 import org.custommonkey.xmlunit.XMLUnit;
-import org.assertj.core.api.Fail;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
-import org.sonar.api.profiles.RulesProfile;
-import org.sonar.api.rules.Rule;
-import org.sonar.api.rules.RulePriority;
-import org.sonar.plugins.groovy.foundation.Groovy;
+import org.sonar.api.batch.rule.internal.ActiveRulesBuilder;
+import org.sonar.api.batch.rule.internal.NewActiveRule;
+import org.sonar.api.rule.RuleKey;
+import org.sonar.api.rule.Severity;
 import org.sonar.plugins.groovy.TestUtils;
 
 import java.io.File;
@@ -47,22 +47,29 @@ public class CodeNarcProfileExporterTest {
 
   private StringWriter writer;
   private CodeNarcProfileExporter exporter;
-  private RulesProfile profile;
 
   @Before
   public void setUp() {
     writer = new StringWriter();
     exporter = new CodeNarcProfileExporter(writer);
-    profile = RulesProfile.create("Sonar Groovy way", Groovy.KEY);
   }
 
   @Test
   public void shouldExportProfile() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.basic.AddEmptyStringRule", "Add Empty String");
-    profile.activateRule(rule, RulePriority.MAJOR);
-    rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.size.ClassSizeRule", "Class Size");
-    profile.activateRule(rule, RulePriority.MAJOR);
-    exporter.exportProfile(profile);
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.basic.AddEmptyStringRule"))
+                                                .setName("Add Empty String")
+                                                .setSeverity(Severity.MAJOR)
+                                                .build())
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.size.ClassSizeRule"))
+                                                .setName("Class Size")
+                                                .setSeverity(Severity.MAJOR)
+                                                .build())
+                                   .build());
 
     assertSimilarXml(
       TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportProfile.xml"),
@@ -76,7 +83,7 @@ public class CodeNarcProfileExporterTest {
     exporter = new CodeNarcProfileExporter(writer);
 
     try {
-      exporter.exportProfile(profile);
+      exporter.exportActiveRules(new ActiveRulesBuilder().build());
       Fail.fail("Should have failed");
     }  catch(IllegalStateException e) {
       assertThat(e.getMessage()).contains("Fail to export CodeNarc profile");
@@ -85,11 +92,15 @@ public class CodeNarcProfileExporterTest {
 
   @Test
   public void shouldExportParameters() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.size.ClassSizeRule", "Class Size");
-    rule.createParameter("maxLines");
-    profile.activateRule(rule, RulePriority.MAJOR).setParameter("maxLines", "20");
-
-    exporter.exportProfile(profile);
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.size.ClassSizeRule"))
+                                                .setName("Class Size")
+                                                .setSeverity(Severity.MAJOR)
+                                                .setParam("maxLines", "20")
+                                                .build())
+                                   .build());
 
     assertSimilarXml(
       TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportParameters.xml"),
@@ -98,11 +109,15 @@ public class CodeNarcProfileExporterTest {
 
   @Test
   public void shouldNotExportUnsetParameters() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.size.ClassSizeRule", "Class Size");
-    rule.createParameter("maxLines");
-    profile.activateRule(rule, RulePriority.MAJOR).setParameter("maxLines", null);
-
-    exporter.exportProfile(profile);
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.size.ClassSizeRule"))
+                                                .setName("Class Size")
+                                                .setSeverity(Severity.MAJOR)
+                                                .setParam("maxLines", null)
+                                                .build())
+                                   .build());
 
     assertSimilarXml(
       TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportNullParameters.xml"),
@@ -111,10 +126,14 @@ public class CodeNarcProfileExporterTest {
 
   @Test
   public void shouldExportFixedRulesCorrectly() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.design.PrivateFieldCouldBeFinalRule.fixed", "Private Field Could Be Final");
-    profile.activateRule(rule, RulePriority.MAJOR);
-
-    exporter.exportProfile(profile);
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.design.PrivateFieldCouldBeFinalRule.fixed"))
+                                                .setName("Private Field Could Be Final")
+                                                .setSeverity(Severity.MAJOR)
+                                                .build())
+                                   .build());
 
     assertSimilarXml(
       TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportFixedRules.xml"),
@@ -122,25 +141,16 @@ public class CodeNarcProfileExporterTest {
   }
 
   @Test
-  public void shouldNotExportParametersWithDefaultValue() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.size.ClassSizeRule", "Class Size");
-    rule.createParameter("maxLines").setDefaultValue("20");
-    profile.activateRule(rule, RulePriority.MAJOR).setParameter("maxLines", "20");
-
-    exporter.exportProfile(profile);
-
-    assertSimilarXml(
-      TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportNullParameters.xml"),
-      writer.toString());
-  }
-
-  @Test
   public void shouldEscapeExportedParameters() throws Exception {
-    Rule rule = Rule.create(CodeNarcRulesDefinition.REPOSITORY_KEY, "org.codenarc.rule.naming.ClassNameRule", "Class Name");
-    rule.createParameter("regex").setDefaultValue("([A-Z]\\w*\\$?)*");
-    profile.activateRule(rule, RulePriority.MAJOR).setParameter("regex", "[A-Z]+[a-z&&[^bc]]");
-
-    exporter.exportProfile(profile);
+    exporter.exportActiveRules(new ActiveRulesBuilder()
+                                   .addRule(new NewActiveRule.Builder()
+                                                .setRuleKey(RuleKey.of(CodeNarcRulesDefinition.REPOSITORY_KEY,
+                                                                       "org.codenarc.rule.naming.ClassNameRule"))
+                                                .setName("Class Name")
+                                                .setSeverity(Severity.MAJOR)
+                                                .setParam("regex", "[A-Z]+[a-z&&[^bc]]")
+                                                .build())
+                                   .build());
 
     assertSimilarXml(
       TestUtils.getResource("/org/sonar/plugins/groovy/codenarc/exportProfile/exportEscapedParameters.xml"),
